@@ -1,0 +1,8 @@
+/target/
+nn-crf-interface/neural_server/polyglot/*.t7
+nn-crf-interface/neural_server/polyglot/*.txt
+nn-crf-interface/neural_server/polyglot/*.pkl
+dependency-reduced-pom.xml
+models/*
+nn-crf-interface/neural_server/fasttext/*
+

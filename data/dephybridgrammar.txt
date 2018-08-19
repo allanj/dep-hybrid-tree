@@ -1,0 +1,28 @@
+all patterns
+w W WW X Y XW WX XY YX A B C
+
+arity=0
+w W WW A
+A => WW | W
+WW => W W
+W => w | W | W W | w w W
+.
+
+
+arity=1
+W X XW WX B
+B => WX | XW | X	
+WX => W X			
+XW => X W
+W => w | w w W			
+.
+
+
+arity=2
+X Y XY YX C
+C => XY | YX			
+XY => X Y 					
+YX => Y X 					
+.
+
+

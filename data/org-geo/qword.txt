@@ -1,0 +1,48 @@
+rivers, 1
+through, 3
+which, 97
+give, 11
+iowa, 1
+san, 1
+in, 3
+could, 1
+tell, 1
+count, 1
+show, 2
+list, 1
+people, 1
+population, 1
+states, 1
+can, 1
+how, 152
+number, 3
+sacramento, 1
+what, 559
+of, 1
+name, 10
+where, 26
+state, 1
+
+
+91.8% what, which, how
+94.8 + where
+96.0 + give
+
+
+what 's, 1
+what major, 2
+what rivers, 24
+what city, 4
+what state, 58
+what states, 61
+what is, 326
+what capital, 2
+what length, 1
+what are, 63
+what cities, 4
+what can, 1
+what river, 10
+what mountains, 1
+what texas, 1
+
+69.7% what be, 
