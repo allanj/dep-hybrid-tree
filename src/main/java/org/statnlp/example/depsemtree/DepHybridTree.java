@@ -48,7 +48,7 @@ public class DepHybridTree {
 	
 	public static int numThreads = 8;
 	public static String language = "en";
-	public static int numIteration = 100;
+	public static int numIteration = 40000;
 	public static double l2 = 0.01;
 	public static String trainIDFile = "600";
 	public static String testIDFile = "test";
@@ -61,24 +61,21 @@ public class DepHybridTree {
 	public static int gpuId = -1;
 	public static String embedding = "polyglot";
 	public static double dropout = 0.0;
-	public static int embeddingSize = 50;
+	public static int embeddingSize = 64;
 	public static int hiddenSize = 0;
-	public static int mlpHalfWindowSize = 0;
 	public static boolean evalDev = false;
 	public static int evalK = 11;
 	public static String type = "none";
 	public static boolean fixEmbedding = false; //by default do not fix the embedding.
 	public static boolean useEmbeddingFeature = false;
 	public static WordEmbedding emb = null;
-	public static boolean averageEmbFeats = true; //only use while the embedding feature is enable. False means just split true is better
 	public static int epochLim = 1;
 	public static boolean saveGMWeightOnly = false; //if saving the graphical model weights only
 	public static boolean loadPretrainedWeight = false;
 	public static boolean fixPretrainedWeight = true;
 	public static String optimStr = "lbfgs"; 
 	public static boolean doTest = true;
-	public static boolean moreNeural = false;
-	public static boolean bowFeats =true;
+	public static boolean bowFeats = true;
 	public static boolean hmFeats = true;
 	public static boolean saveEpochModel = false;
 	public static boolean loadEpochModel = false;
@@ -111,15 +108,20 @@ public class DepHybridTree {
 		NetworkConfig.NUM_THREADS = numThreads;
 		NetworkConfig.AVOID_DUPLICATE_FEATURES = true;
 		NetworkConfig.L2_REGULARIZATION_CONSTANT = l2;
-		NetworkConfig.FEATURE_TOUCH_TEST = false;
+		if (!NetworkConfig.USE_NEURAL_FEATURES && !useEmbeddingFeature) {
+			NetworkConfig.L2_REGULARIZATION_CONSTANT = DHTConfig.tunedL2CRF(lang);
+		}
+		if (!NetworkConfig.USE_NEURAL_FEATURES && useEmbeddingFeature) {
+			NetworkConfig.L2_REGULARIZATION_CONSTANT = DHTConfig.tunedL2EmbCRF(lang);
+		}
 		NetworkConfig.STOPPING_CRITERIA = criteria;
 		NetworkConfig.FEATURE_TOUCH_TEST = NetworkConfig.USE_NEURAL_FEATURES ? true : false;
 		
 		int numIterations = numIteration;
 		String modelFile = "dht_"+language+"_l2_"+l2+"_"+trainIDFile+"_" + criteria.toString() + "_" + nn + "_"
-				+ type +"_win_"+mlpHalfWindowSize+ "_hidd_" + hiddenSize + "_emb_"+useEmbeddingFeature+"_"+embedding + "_"+optimStr + "_batch_" + NetworkConfig.BATCH_SIZE+"_fe_" + 
+				+ type + "_hidd_" + hiddenSize + "_emb_"+useEmbeddingFeature+"_"+embedding + "_"+optimStr + "_batch_" + NetworkConfig.BATCH_SIZE+"_fe_" + 
 				fixEmbedding;
-		String nnModelFile = "dhtnn_"+language+"_"+ nn  +"_win_"+mlpHalfWindowSize+ "_"+ embedding + "_" + type + "_hidd_" + hiddenSize + "_"+optimStr + "_batch" + NetworkConfig.BATCH_SIZE+"_fe" + 
+		String nnModelFile = "dhtnn_"+language+"_"+ nn  + "_"+ embedding + "_" + type + "_hidd_" + hiddenSize + "_"+optimStr + "_batch" + NetworkConfig.BATCH_SIZE+"_fe" + 
 				fixEmbedding+ ".m";
 		if (saveEpochModel) {
 			NetworkConfig.SAVE_EPOCH_MODEL = true;
@@ -165,8 +167,9 @@ public class DepHybridTree {
 			List<NeuralNetworkCore> nets = new ArrayList<NeuralNetworkCore>();
 			if(NetworkConfig.USE_NEURAL_FEATURES){
 				if (nn == NeuralType.mlp) {
+					//actually inside is bilinear;
 					nets.add(new DepMLP("MultiLayerPerceptron", dm.getAllUnits().size(), hiddenSize, gpuId,
-							embedding, fixEmbedding, dropout, lang, type, mlpHalfWindowSize)
+							embedding, fixEmbedding, dropout, lang, type, 1)
 							.setModelFile(modelFolder + nnModelFile));
 				} else if (nn == NeuralType.lstm) {
 					nets.add(new GeoLSTM("SimpleBiLSTM", dm.getAllUnits().size(), hiddenSize, gpuId,
@@ -180,7 +183,7 @@ public class DepHybridTree {
 			GlobalNetworkParam gnp = new GlobalNetworkParam(optimizer, new GlobalNeuralNetworkParam(nets));
 //			gnp.setStoreFeatureReps();
 			
-			DHTFeatureManager fm = new DHTFeatureManager(gnp, g, dm, nn, emb, averageEmbFeats, mlpHalfWindowSize, moreNeural, bowFeats, hmFeats);
+			DHTFeatureManager fm = new DHTFeatureManager(gnp, g, dm, nn, emb, bowFeats, hmFeats);
 			
 			DHTNetworkCompiler compiler = new DHTNetworkCompiler(g, forest_global, dm);
 			
@@ -315,7 +318,6 @@ public class DepHybridTree {
 		parser.addArgument("--readModel", "-rm").type(Boolean.class).setDefault(readModel).help("reading the model");
 		parser.addArgument("--stopCriteria", "-sc").type(StoppingCriteria.class).setDefault(criteria).help("stopping criteria");
 		parser.addArgument("--neural", "-nn").type(NeuralType.class).setDefault(nn).help("neural network type");
-		parser.addArgument("-mhws", "--mlpHalfWindowSize").type(Integer.class).setDefault(mlpHalfWindowSize).help("the half window size of the MLP");
 		parser.addArgument("--batch", "-b").type(Integer.class).setDefault(NetworkConfig.BATCH_SIZE).help("batch size");
 		parser.addArgument("--useBatch", "-ub").type(Boolean.class).setDefault(NetworkConfig.USE_BATCH_TRAINING).help("use batch training");
 		parser.addArgument("-optim", "--optimizer").type(String.class).choices("lbfgs", "sgdclip", "adam").setDefault("lbfgs").help("optimizer");
@@ -330,14 +332,12 @@ public class DepHybridTree {
 		parser.addArgument("--type").type(String.class).setDefault(type).help("the type for MLP, can be mlp or bilinear or bilinear-mlp");
 		parser.addArgument("-fe", "--fixEmbedding").type(Boolean.class).setDefault(fixEmbedding).help("if fix the embedding");
 		parser.addArgument("-uef", "--useEmbFeats").type(Boolean.class).setDefault(useEmbeddingFeature).help("use the embedding value as features");
-		parser.addArgument("-aef", "--avgEmbFeats").type(Boolean.class).setDefault(averageEmbFeats).help("average the embedding features or treat them differently");
 		parser.addArgument("-el", "--epochLim").type(Integer.class).setDefault(epochLim).help("evaluate the dev set after a number of epochs");
 		parser.addArgument("-sgmw", "--saveGMWeight").type(Boolean.class).setDefault(saveGMWeightOnly).help("save graphical model weights only");
 		parser.addArgument("-lpw", "--loadPretrainedWeight").type(Boolean.class).setDefault(loadPretrainedWeight).help("load pretrained parameters");
 		parser.addArgument("-fpw", "--fixPretrainedWeight").type(Boolean.class).setDefault(fixPretrainedWeight).help("fix the pretrained feature weight");
 		parser.addArgument("-dt", "--dotest").type(Boolean.class).setDefault(doTest).help("test the data");
 		parser.addArgument("-regn", "--regneural").type(Boolean.class).setDefault(NetworkConfig.REGULARIZE_NEURAL_FEATURES).help("regularizing the neural features");
-		parser.addArgument("-mn", "--moreNeural").type(Boolean.class).setDefault(moreNeural).help("add the neural on modifier");
 		parser.addArgument("-bf", "--bowFeats").type(Boolean.class).setDefault(bowFeats).help("add bag-of-words features");
 		parser.addArgument("-hmf", "--hmFeats").type(Boolean.class).setDefault(hmFeats).help("add head and modifier features");
 		parser.addArgument("-sem", "--saveEpochModel").type(Boolean.class).setDefault(saveEpochModel).help("save the models in epoch");
@@ -394,11 +394,9 @@ public class DepHybridTree {
         type = ns.getString("type");
         fixEmbedding = ns.getBoolean("fixEmbedding");
         useEmbeddingFeature = ns.getBoolean("useEmbFeats");
-        averageEmbFeats = ns.getBoolean("avgEmbFeats");
         epochLim = ns.getInt("epochLim");
         saveGMWeightOnly = ns.getBoolean("saveGMWeight");
         loadPretrainedWeight = ns.getBoolean("loadPretrainedWeight");
-        mlpHalfWindowSize = ns.getInt("mlpHalfWindowSize");
         if (loadPretrainedWeight) {
         	NetworkConfig.LOAD_PRETRAIN_WEIGHT = true;
         	System.out.println("[Info] loading the pretrained weights");
@@ -418,7 +416,6 @@ public class DepHybridTree {
         	}
         }
         doTest = ns.getBoolean("dotest");
-        moreNeural = ns.getBoolean("moreNeural");
         bowFeats = ns.getBoolean("bowFeats");
         hmFeats = ns.getBoolean("hmFeats");
         saveEpochModel = ns.getBoolean("saveEpochModel");

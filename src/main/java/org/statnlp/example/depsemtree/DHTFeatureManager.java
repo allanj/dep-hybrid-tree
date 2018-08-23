@@ -28,25 +28,18 @@ public class DHTFeatureManager extends FeatureManager {
 	
 	private boolean CHEAT = false;
 	private NeuralType nn = NeuralType.none;
-	private transient WordEmbedding emb = null;
-	@SuppressWarnings("unused")
-	private boolean averageEmbFeats;
-	private int mlpHalfWindowSize = 0;
-	private boolean moreNeural = false;
+	private transient WordEmbedding emb = null; //means using the embedding as feature values
 	private boolean bowFeats = true;
 	private boolean hmFeats = true;
 	
 	public DHTFeatureManager(GlobalNetworkParam param_g, HybridGrammar g, SemTextDataManager dm,
-			NeuralType nn, WordEmbedding emb, boolean averageEmbFeats, int mlpHalfWindowSize, boolean moreNeural,
+			NeuralType nn, WordEmbedding emb,
 			boolean bowFeats, boolean hmFeats) {
 		super(param_g);
 		this._g = g;
 		this._dm = dm;
 		this.nn = nn;
 		this.emb = emb;
-		this.averageEmbFeats = averageEmbFeats;
-		this.mlpHalfWindowSize = mlpHalfWindowSize;
-		this.moreNeural = moreNeural;
 		this.bowFeats = bowFeats;
 		this.hmFeats = hmFeats;
 	}
@@ -144,7 +137,7 @@ public class DHTFeatureManager extends FeatureManager {
 //				}
 //			}
 			FeatureArray fa = this.createFeatureArray(network, fs);
-			FeatureArray curr = fa;
+//			FeatureArray curr = fa;
 //			if (this.emb != null) {
 //				String embWord = this.getWord(sent, bIndex);
 //				//first try average
@@ -209,17 +202,21 @@ public class DHTFeatureManager extends FeatureManager {
 					this.addNeural(network, 0, parent_k, children_k_index, edgeInput, p_unit_id);
 				}
 			}
-//			if (this.emb != null && this.moreNeural) {
-//				String modWord = this.getWord(sent, modIdx);
-//				//first try average
-//				double[] modEmb = this.emb.getEmbedding(modWord);
-//				double[] fvs = modEmb;
-//				int[] femb = new int[modEmb.length];
-//				for (int p = 0; p < modEmb.length; p++) {
-//					femb[p] = this._param_g.toFeature(network, FT.emitEmb.name(), p_unit.toString(), (p+1)+ "");
-//				}
-//				curr = curr.addNext(this.createFeatureArray(network, femb, fvs));
-//			}
+			if (this.emb != null) {
+				String headWord = this.getWord(sent, headIdx);
+				String modWord = this.getWord(sent, modIdx);
+				//first try average
+				double[] headEmb = this.emb.getEmbedding(headWord);
+				double[] modEmb = this.emb.getEmbedding(modWord);
+				double[] fvs = new double[headEmb.length];
+				int[] femb = new int[headEmb.length];
+				for (int p = 0; p < headEmb.length; p++) {
+					femb[p] = this._param_g.toFeature(network, FT.headEmb.name(), p_unit.toString(), (p+1)+ "");
+					fvs[p] = (headEmb[p] + modEmb[p]) / 2 ;
+				}
+				curr = curr.addNext(this.createFeatureArray(network, femb, fvs));
+			}
+
 			
 			List<Integer> fstr = new ArrayList<>();
 			int min = Math.min(headIdx, modIdx);
