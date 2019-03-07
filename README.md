@@ -1,5 +1,5 @@
 ### Dependency-basded Hybrid Tree for Semantic Parsing
-This repository is the implementation of the paper _"Dependency-based Hybrid Tree for Semantic parsing"_ appeared in the Empirical Methods in Natural Language Processing (EMNLP), 2018. The paper will be released soon. 
+This repository is the implementation of the paper _"Dependency-based Hybrid Tree for Semantic parsing"_ appeared in the Empirical Methods in Natural Language Processing (EMNLP), 2018. 
 
 
 #### Requirements
